@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>TODOリスト</title>
+</head>
+<body>
+  <!-- ユーザー情報とサインアウト -->
+  <div>
+    ログイン中: <span id="user-email">読み込み中...</span>
+    <button id="logout-btn">サインアウト</button>
+  </div>
+  <hr>
+
+  <!-- TODO追加エリア -->
+  <input type="text" id="todo-input" placeholder="新しいTODOを入力">
+  <button id="add-btn">追加</button>
+
+  <!-- 絞り込みボタン -->
+  <div style="margin-top: 10px;">
+    <button id="filter-all">全て</button>
+    <button id="filter-incomplete">未完了</button>
+    <button id="filter-completed">完了</button>
+  </div>
+
+  <!-- TODO一覧が表示される場所 -->
+  <ul id="todo-list"></ul>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { 
+      getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where 
+    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    // ★ここにも自分のfirebaseConfigを貼り付ける
+   const firebaseConfig = {
+  apiKey: "AIzaSyCoO3DdVMOEa0ra8F43a6v_TfHNEYaFook",
+  authDomain: "cloudcomputiong10.firebaseapp.com",
+  databaseURL: "https://cloudcomputiong10-default-rtdb.firebaseio.com",
+  projectId: "cloudcomputiong10",
+  storageBucket: "cloudcomputiong10.firebasestorage.app",
+  messagingSenderId: "439961192980",
+  appId: "1:439961192980:web:a94fa2dc26e4cc20a07501"
+};
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let currentUser = null;
+    let currentFilter = "all"; // 現在の絞り込み状態 ("all", "incomplete", "completed")
+
+    // 1. ログイン状態の監視
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        currentUser = user;
+        document.getElementById("user-email").textContent = user.email;
+        loadTodos(); // TODOを読み込む
+      } else {
+        // ログインしていなければサインイン画面に戻す
+        window.location.href = "index.html";
+      }
+    });
+
+    // 2. サインアウト処理
+    document.getElementById("logout-btn").addEventListener("click", async () => {
+      await signOut(auth);
+    });
+
+    // 3. TODOの読み込み（クエリで絞り込み対応）
+    async function loadTodos() {
+      const listEl = document.getElementById("todo-list");
+      listEl.innerHTML = ""; // 一旦画面を空にする
+
+      // ヒント通りのパス: todo / ユーザーのUID / items
+      const itemsRef = collection(db, "todo", currentUser.uid, "items");
+      let q = itemsRef;
+
+      // 絞り込みボタンに応じたクエリを作成
+      if (currentFilter === "incomplete") {
+        q = query(itemsRef, where("checked", "==", false));
+      } else if (currentFilter === "completed") {
+        q = query(itemsRef, where("checked", "==", true));
+      }
+
+      const querySnapshot = await getDocs(q);
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        createTodoElement(docSnap.id, data);
+      });
+    }
+
+    // 4. 画面に1行分のTODOを作る関数
+    function createTodoElement(docId, data) {
+      const li = document.createElement("li");
+
+      // チェックボックス
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = data.checked;
+      checkbox.addEventListener("change", async () => {
+        await updateDoc(doc(db, "todo", currentUser.uid, "items", docId), {
+          checked: checkbox.checked
+        });
+        loadTodos(); // 絞り込み表示を最新にするため再読み込み
+      });
+
+      // タイトル（編集できるようにinputにする）
+      const titleInput = document.createElement("input");
+      titleInput.type = "text";
+      titleInput.value = data.title;
+      // 入力内容が確定したらデータベースを更新
+      titleInput.addEventListener("change", async () => {
+        await updateDoc(doc(db, "todo", currentUser.uid, "items", docId), {
+          title: titleInput.value
+        });
+      });
+
+      // 削除（×）ボタン
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "×";
+      deleteBtn.addEventListener("click", async () => {
+        await deleteDoc(doc(db, "todo", currentUser.uid, "items", docId));
+        li.remove(); // HTMLから削除
+      });
+
+      li.appendChild(checkbox);
+      li.appendChild(titleInput);
+      li.appendChild(deleteBtn);
+      document.getElementById("todo-list").appendChild(li);
+    }
+
+    // 5. 新規TODO追加ボタン
+    document.getElementById("add-btn").addEventListener("click", async () => {
+      const input = document.getElementById("todo-input");
+      if (!input.value) return;
+
+      // ヒント通りにデータを追加
+      await addDoc(collection(db, "todo", currentUser.uid, "items"), {
+        checked: false,
+        title: input.value,
+        time: new Date()
+      });
+
+      input.value = ""; // 入力欄を空にする
+      loadTodos(); // リストを再読み込み
+    });
+
+    // 6. 絞り込みボタンのイベント
+    document.getElementById("filter-all").addEventListener("click", () => {
+      currentFilter = "all";
+      loadTodos();
+    });
+    document.getElementById("filter-incomplete").addEventListener("click", () => {
+      currentFilter = "incomplete";
+      loadTodos();
+    });
+    document.getElementById("filter-completed").addEventListener("click", () => {
+      currentFilter = "completed";
+      loadTodos();
+    });
+  </script>
+</body>
+</html>

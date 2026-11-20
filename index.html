@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>サインイン</title>
+</head>
+<body>
+  <h1>TODOアプリ サインイン</h1>
+  <input type="email" id="email" placeholder="メールアドレス"><br>
+  <input type="password" id="password" placeholder="パスワード"><br>
+  <button id="login-btn">サインイン</button>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+    // ★ここに自分のfirebaseConfigを貼り付ける
+    const firebaseConfig = {
+  apiKey: "AIzaSyCoO3DdVMOEa0ra8F43a6v_TfHNEYaFook",
+  authDomain: "cloudcomputiong10.firebaseapp.com",
+  databaseURL: "https://cloudcomputiong10-default-rtdb.firebaseio.com",
+  projectId: "cloudcomputiong10",
+  storageBucket: "cloudcomputiong10.firebasestorage.app",
+  messagingSenderId: "439961192980",
+  appId: "1:439961192980:web:a94fa2dc26e4cc20a07501"
+};
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    // サインインボタンを押した時の処理
+    document.getElementById("login-btn").addEventListener("click", async () => {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        // 成功したらtodo.htmlへ移動
+        window.location.href = "todo.html";
+      } catch (error) {
+        alert("ログイン失敗: " + error.message);
+      }
+    });
+  </script>
+</body>
+</html>
